@@ -1,6 +1,7 @@
 from telebot import TeleBot, types
-import network
-import sql
+from ical import network
+import sql.database as sql
+import planner
 import os
 
 
@@ -16,8 +17,8 @@ TIMEZONE_BUTTONS = [types.KeyboardButton(tz) for tz in TIMEZONES.split()]
 TIMEZONE_MARKUP = types.ReplyKeyboardMarkup()
 for idx in range(0, len(TIMEZONE_BUTTONS), 3):
     TIMEZONE_MARKUP.add(*TIMEZONE_BUTTONS[idx : idx + 3])
-
 DEFAULT_TZ = "UTC+03:00"
+
 
 bot = TeleBot(token=os.getenv("TOKEN"))
 
@@ -30,7 +31,7 @@ def start_message(message: types.Message):
 Чтобы узнать как работать с ботом используйте команду /help
     """
     try:
-        sql.add_chat(chat, DEFAULT_TZ)
+        sql.insert_chat(chat, DEFAULT_TZ)
     except ValueError:
         message_text = "Произошла ошибка в работе бота"
     bot.send_message(chat, message_text)
@@ -40,7 +41,7 @@ def start_message(message: types.Message):
 def help_message(message: types.Message):
     chat = message.chat.id
     try:
-        tz = sql.select_chat_tz(chat)
+        tz = sql.select_tz(chat)
         message_text = f"""
 С помощью команды /help вы сможете получить справочную информацию.
 С помощью команды /add вы сможете добавить новый календарь: /add %ссылка%
@@ -49,7 +50,7 @@ def help_message(message: types.Message):
 Сейчас установлен часовой пояс {tz}.
 Если вы хотите изменить часовой пояс используйте команду /offset
     """
-    except ValueError:
+    except (ValueError, IndexError):
         message_text = "Произошла ошибка в работе бота"
 
     bot.send_message(chat, message_text)
@@ -70,8 +71,8 @@ def add_message(message: types.Message):
         return
     try:
         network.get_calendar_by_url(link)
-        sql.add_cal(link)
-        sql.add_chat_cal(chat, link)
+        sql.insert_cal(link)
+        sql.insert_prop(chat, link)
         message_text = "Календарь добавлен"
     except ValueError:
         message_text = "Некорректная ссылка"
@@ -85,7 +86,7 @@ def del_message(message):
     if len(link) == 0:
         return
     try:
-        sql.del_chat_cal(chat, link)
+        sql.delete_prop(chat, link)
         message_text = "Календарь удалён или не был привязан"
     except ValueError:
         message_text = "Некорректная ссылка"
@@ -96,7 +97,7 @@ def del_message(message):
 def list_message(message: types.Message):
     chat = message.chat.id
     try:
-        calendars = sql.select_chat_cal(chat)
+        calendars = sql.select_cal(chat)
         if len(calendars) == 0:
             message_text = """
 На данный момент ни один календарь не добавлен
@@ -122,5 +123,13 @@ def utc_message(message: types.Message):
         bot.send_message(chat, message_text)
 
 
+@bot.message_handler(content_types=["new_chat_members"])
+def add_in_new_group(message: types.Message):
+    for members in message.new_chat_members:
+        if members.id == bot.get_me().id:
+            start_message(message)
+
+
 sql.create_db()
+planner.start(bot)
 bot.polling()
