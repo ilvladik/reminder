@@ -1,5 +1,6 @@
 import sqlite3
 
+
 DATASOURCE = "db.sqlite3"
 
 
@@ -54,6 +55,22 @@ def clear():
     __doqueries(script)
 
 
+def select_chat_tz(chat_id: str):
+    return __doquery(
+        "SELECT `offset` FROM `chats` WHERE `chat_id` = ?", (chat_id,)
+    )[0][0]
+
+
+def select_chat_cal(chat_id: str):
+    return [
+        element[0]
+        for element in __doquery(
+            "SELECT `calendar_id` FROM `chat_cal` WHERE `chat_id` = ?",
+            (chat_id,),
+        )
+    ]
+
+
 def add_chat(chat_id: str, offset: str):
     __doquery(
         "INSERT OR IGNORE INTO `chats` VALUES (?, ?);",
@@ -61,17 +78,24 @@ def add_chat(chat_id: str, offset: str):
     )
 
 
-def add_calendar(link: str):
+def add_cal(link: str):
     __doquery("INSERT OR IGNORE INTO `calendars` VALUES (?);", (link,))
 
 
-def add_calendar_in_chat(chat_id: str, link: str):
-    __doquery(
+def add_chat_cal(chat_id: str, link: str):
+    return __doquery(
         "INSERT OR IGNORE INTO `chat_cal` VALUES (?, ?)", (chat_id, link)
     )
 
 
-def del_calendar_from_chat(chat_id: str, link: str):
+def update_offset(chat_id: str, offset: str):
+    __doquery(
+        "UPDATE `chats` SET `offset` = ? WHERE `chat_id` = ?",
+        (offset, chat_id),
+    )
+
+
+def del_chat_cal(chat_id: str, link: str):
     __doquery(
         "DELETE FROM `chat_cal` WHERE `chat_id` = ? AND `calendar_id` = ?",
         (chat_id, link),
