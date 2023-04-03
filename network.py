@@ -4,12 +4,18 @@ import requests
 
 def get_events(url: str):
     """Calendar's url: str -> list of events"""
-    calendar = get_calendar_by_url(url)
-    return calendar.walk("VEVENT")
+    try:
+        calendar = get_calendar_by_url(url)
+        return calendar.walk("VEVENT")
+    except Exception:
+        ValueError
 
 
 def get_calendar_by_url(url: str):
     """Calendar's url: str -> object of Calendar class from icalendar lib"""
-    request = requests.get(url)
-    calendar = Calendar.from_ical(request.text)
-    return calendar
+    try:
+        request = requests.get(url)
+        calendar = Calendar.from_ical(request.text)
+        return calendar
+    except Exception:
+        raise ValueError
